@@ -31,6 +31,22 @@ def denoise(gray_image):
     blurred = cv2.GaussianBlur(gray_image, (5, 5), 0)
     return blurred
 
+def apply_threshold(blurred_image):
+    """
+    Converts a grayscale blurred image into
+    a black-and-white (binary) image using
+    adaptive thresholding.
+    """
+    thresh = cv2.adaptiveThreshold(
+        blurred_image,
+        255,  # max value for white
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        11,   # size of local neighborhood
+        2     # constant subtracted from mean
+    )
+    return thresh
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -57,3 +73,8 @@ if __name__ == "__main__":
     blurred = denoise(gray)
     cv2.imwrite(str(output_dir / "blurred.jpg"), blurred)
     print("Saved blurred image")
+
+# Step 4: Apply adaptive thresholding
+    thresh = apply_threshold(blurred)
+    cv2.imwrite(str(output_dir / "threshold.jpg"), thresh)
+    print("Saved thresholded image")
