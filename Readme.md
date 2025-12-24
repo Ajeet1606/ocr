@@ -10,6 +10,11 @@ doc-intel/
 │   │   └── deskew.py
 │   ├── utils/
 │   │   └── image_io.py
+│   ├── output/
+│   │   ├── gray.jpg
+│   │   ├── blurred.jpg
+│   │   ├── threshold.jpg
+│   │   └── final.jpg
 │   └── requirements.txt
 └── samples/
 	├── invoice.jpg
