@@ -47,6 +47,23 @@ def apply_threshold(blurred_image):
     )
     return thresh
 
+def apply_morphology(binary_image):
+    """
+    Applies morphological closing to strengthen
+    text strokes and close small gaps.
+    """
+    kernel = cv2.getStructuringElement(
+        cv2.MORPH_RECT,
+        (2, 2)
+    )
+
+    processed = cv2.morphologyEx(
+        binary_image,
+        cv2.MORPH_CLOSE,
+        kernel
+    )
+    return processed
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -78,3 +95,8 @@ if __name__ == "__main__":
     thresh = apply_threshold(blurred)
     cv2.imwrite(str(output_dir / "threshold.jpg"), thresh)
     print("Saved thresholded image")
+
+# Step 5: Apply morphological operations
+    final = apply_morphology(thresh)
+    cv2.imwrite(str(output_dir / "final.jpg"), final)
+    print("Saved final OCR-ready image")
