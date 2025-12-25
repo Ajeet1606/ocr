@@ -1,6 +1,7 @@
 import cv2
 import sys
 from pathlib import Path
+import pytesseract
 
 def load_image(image_path: str):
     """
@@ -64,6 +65,18 @@ def apply_morphology(binary_image):
     )
     return processed
 
+# OCR function
+def run_ocr(image):
+    """
+    Runs Tesseract OCR on a preprocessed image
+    and returns raw OCR data including bounding boxes.
+    """
+    data = pytesseract.image_to_data(
+        image,
+        output_type=pytesseract.Output.DICT
+    )
+    return data
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -100,3 +113,13 @@ if __name__ == "__main__":
     final = apply_morphology(thresh)
     cv2.imwrite(str(output_dir / "final.jpg"), final)
     print("Saved final OCR-ready image")
+
+# Step 6: Run OCR
+    ocr_data = run_ocr(final)
+
+# Save raw OCR output for inspection
+import json
+with open("outputs/ocr_raw.json", "w") as f:
+    json.dump(ocr_data, f, indent=2)
+
+print("Saved raw OCR data")
