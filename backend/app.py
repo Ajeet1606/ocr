@@ -2,6 +2,7 @@ import cv2
 import sys
 from pathlib import Path
 import pytesseract
+import re
 
 def load_image(image_path: str):
     """
@@ -16,6 +17,24 @@ def load_image(image_path: str):
         raise ValueError(f"Could not load image at {image_path}")
 
     return image
+
+def resize_image(image, max_width=1800):
+    """
+    Resizes image while maintaining aspect ratio.
+    Improves OCR performance on phone images.
+    """
+    h, w = image.shape[:2]
+
+    if w <= max_width:
+        return image
+
+    scale = max_width / w
+    new_w = int(w * scale)
+    new_h = int(h * scale)
+
+    resized = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
+    return resized
+
 
 
 def to_grayscale(image):
@@ -43,8 +62,8 @@ def apply_threshold(blurred_image):
         255,  # max value for white
         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
         cv2.THRESH_BINARY,
-        11,   # size of local neighborhood
-        2     # constant subtracted from mean
+        15,   # size of local neighborhood
+        4     # constant subtracted from mean
     )
     return thresh
 
@@ -55,7 +74,7 @@ def apply_morphology(binary_image):
     """
     kernel = cv2.getStructuringElement(
         cv2.MORPH_RECT,
-        (2, 2)
+        (3, 3)
     )
 
     processed = cv2.morphologyEx(
@@ -77,6 +96,101 @@ def run_ocr(image):
     )
     return data
 
+def is_price(text):
+    return bool(re.match(r"^[₹$]?\d+(\.\d{2})?$", text))
+
+def is_valid_word(text):
+    """
+    Filters out OCR junk like random symbols.
+    """
+    if len(text) == 1 and not text.isalnum():
+        return False
+
+    # Reject words with too many special chars
+    if len(re.findall(r"[^\w\d]", text)) > 2:
+        return False
+
+    return True
+
+def is_total_line(text):
+    keywords = ["total", "amount", "grand"]
+    t = text.lower()
+    return any(k in t for k in keywords)
+
+
+def extract_words(ocr_data, min_conf=0):
+    """
+    Converts raw Tesseract OCR output into
+    a list of word objects, filtering low-confidence noise.
+    """
+    words = []
+
+    n = len(ocr_data["text"])
+
+    for i in range(n):
+        text = ocr_data["text"][i].strip()
+        conf = int(ocr_data["conf"][i])
+
+        if text == "" or conf < min_conf:
+            continue
+        if not is_valid_word(text):
+            continue
+
+        word = {
+            "text": text,
+            "x": ocr_data["left"][i],
+            "y": ocr_data["top"][i],
+            "w": ocr_data["width"][i],
+            "h": ocr_data["height"][i],
+            "conf": conf
+        }
+        words.append(word)
+
+    return words
+
+def group_words_into_lines(words, y_threshold=20):
+    """
+    Groups words into lines based on vertical proximity.
+    """
+    lines = []
+
+    for word in words:
+        placed = False
+
+        for line in lines:
+            if abs(word["y"] - line["y"]) < y_threshold:
+                line["words"].append(word)
+                placed = True
+                break
+
+        if not placed:
+            lines.append({
+                "y": word["y"],
+                "words": [word]
+            })
+
+    # Sort words inside each line by X coordinate
+    for line in lines:
+        line["words"].sort(key=lambda w: w["x"])
+
+    # Sort lines top to bottom
+    lines.sort(key=lambda l: l["y"])
+
+    return lines
+
+def lines_to_text(lines):
+    result = []
+
+    for line in lines:
+        words = line["words"]
+        text = " ".join(w["text"] for w in words)
+
+        # Boost confidence if line contains a price
+        if any(is_price(w["text"]) for w in words):
+            result.append(text)
+
+    return result
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -86,6 +200,7 @@ if __name__ == "__main__":
 # Step1: Load the image
     image_path = sys.argv[1]
     img = load_image(image_path)
+    img = resize_image(img)
 
     print("Image shape:", img.shape)
     print("Image dtype:", img.dtype)
@@ -123,3 +238,15 @@ with open("outputs/ocr_raw.json", "w") as f:
     json.dump(ocr_data, f, indent=2)
 
 print("Saved raw OCR data")
+
+# Step 7: Extract words
+words = extract_words(ocr_data)
+lines = group_words_into_lines(words)
+line_texts = lines_to_text(lines)
+
+# Save readable lines for inspection
+with open("outputs/lines.txt", "w") as f:
+    for line in line_texts:
+        f.write(line + "\n")
+
+print("Saved grouped OCR lines")
