@@ -191,6 +191,79 @@ def lines_to_text(lines):
 
     return result
 
+def is_header_line(text):
+    keywords = [
+        "invoice",
+        "issued",
+        "account",
+        "date",
+        "pay to",
+        "invoice no",
+    ]
+    t = text.lower()
+    return any(k in t for k in keywords)
+
+
+
+def is_total_line(text):
+    keywords = ["total", "subtotal", "tax", "amount"]
+    t = text.lower()
+    return any(k in t for k in keywords)
+
+
+def is_item_line(text):
+    """
+    Invoice item lines usually:
+    - contain letters (description)
+    - contain a price-like token
+    """
+    if not any(c.isalpha() for c in text):
+        return False
+
+    return any(is_price(token) for token in text.split())
+
+
+def build_invoice_sections(lines):
+    header = []
+    items = []
+    totals = []
+
+    for line in lines:
+        if is_total_line(line):
+            totals.append(line)
+        elif is_item_line(line):
+            items.append(line)
+        elif is_header_line(line):
+            header.append(line)
+
+    return header, items, totals
+
+
+def generate_markdown(header, items, totals):
+    md = []
+
+    md.append("# Invoice\n")
+
+    if header:
+        md.append("## Details\n")
+        for h in header:
+            md.append(f"- {h}")
+        md.append("")
+
+    if items:
+        md.append("## Items\n")
+        for item in items:
+            md.append(f"- {item}")
+        md.append("")
+
+    if totals:
+        md.append("## Summary\n")
+        for t in totals:
+            md.append(f"- {t}")
+        md.append("")
+
+    return "\n".join(md)
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -250,3 +323,11 @@ with open("outputs/lines.txt", "w") as f:
         f.write(line + "\n")
 
 print("Saved grouped OCR lines")
+
+header, items, totals = build_invoice_sections(line_texts)
+markdown = generate_markdown(header, items, totals)
+
+with open("outputs/document.md", "w") as f:
+    f.write(markdown)
+
+print("Generated Markdown invoice")

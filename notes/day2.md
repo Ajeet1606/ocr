@@ -185,6 +185,23 @@ Invoices are number-centric documents.
 
 ---
 
+## 9️⃣ Structure Generation (The "Understanding" Part)
+
+We now go beyond just "lines" to "sections":
+
+- **Header**: Contains dates, invoice numbers, "issued by".
+- **Items**: Lines with text description + price.
+- **Totals**: Lines with "Total", "Tax", "Amount".
+
+**The Logic:**
+1. Classify each line using keywords (`is_header_line`, `is_total_line`, `is_item_line`).
+2. Bucket lines into `header`, `items`, `totals`.
+3. Generate clean Markdown (`document.md`).
+
+> This transforms a bag of words into a structured document.
+
+---
+
 ## 🧠 Key Learnings (Most Important)
 
 - **OCR ≠ understanding**
@@ -201,7 +218,7 @@ Invoices are number-centric documents.
 outputs/
  ├─ ocr_raw.json
  ├─ lines.txt
- └─ (structured invoice lines)
+ └─ document.md
 ```
 
 You now have:
