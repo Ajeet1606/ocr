@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 import pytesseract
 import re
+import subprocess
 
 def load_image(image_path: str):
     """
@@ -264,70 +265,107 @@ def generate_markdown(header, items, totals):
 
     return "\n".join(md)
 
+def load_markdown(path="outputs/document.md"):
+    with open(path, "r") as f:
+        return f.read()
+def build_prompt(document, question):
+    return f"""
+You are a strict assistant.
+
+Answer the question ONLY using the document below.
+If the answer is not present, say exactly:
+"Not present in the document."
+
+Document:
+{document}
+
+Question:
+{question}
+
+Answer:
+""".strip()
+
+
+def ask_llm(prompt, model="mistral"):
+    result = subprocess.run(
+        ["ollama", "run", model],
+        input=prompt,
+        text=True,
+        capture_output=True
+    )
+    return result.stdout.strip()
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python app.py <image_path>")
         sys.exit(1)
 
-# Step1: Load the image
-    image_path = sys.argv[1]
-    img = load_image(image_path)
-    img = resize_image(img)
+# # Step1: Load the image
+#     image_path = sys.argv[1]
+#     img = load_image(image_path)
+#     img = resize_image(img)
 
-    print("Image shape:", img.shape)
-    print("Image dtype:", img.dtype)
+#     print("Image shape:", img.shape)
+#     print("Image dtype:", img.dtype)
 
-# Step 2: Convert to grayscale
-    gray = to_grayscale(img)
+# # Step 2: Convert to grayscale
+#     gray = to_grayscale(img)
 
-    output_dir = Path("outputs")
-    output_dir.mkdir(exist_ok=True)
+#     output_dir = Path("outputs")
+#     output_dir.mkdir(exist_ok=True)
 
-    cv2.imwrite(str(output_dir / "gray.jpg"), gray)
-    print("Saved grayscale image")
+#     cv2.imwrite(str(output_dir / "gray.jpg"), gray)
+#     print("Saved grayscale image")
 
-# Step 3: Apply Gaussian blur
-    blurred = denoise(gray)
-    cv2.imwrite(str(output_dir / "blurred.jpg"), blurred)
-    print("Saved blurred image")
+# # Step 3: Apply Gaussian blur
+#     blurred = denoise(gray)
+#     cv2.imwrite(str(output_dir / "blurred.jpg"), blurred)
+#     print("Saved blurred image")
 
-# Step 4: Apply adaptive thresholding
-    thresh = apply_threshold(blurred)
-    cv2.imwrite(str(output_dir / "threshold.jpg"), thresh)
-    print("Saved thresholded image")
+# # Step 4: Apply adaptive thresholding
+#     thresh = apply_threshold(blurred)
+#     cv2.imwrite(str(output_dir / "threshold.jpg"), thresh)
+#     print("Saved thresholded image")
 
-# Step 5: Apply morphological operations
-    final = apply_morphology(thresh)
-    cv2.imwrite(str(output_dir / "final.jpg"), final)
-    print("Saved final OCR-ready image")
+# # Step 5: Apply morphological operations
+#     final = apply_morphology(thresh)
+#     cv2.imwrite(str(output_dir / "final.jpg"), final)
+#     print("Saved final OCR-ready image")
 
-# Step 6: Run OCR
-    ocr_data = run_ocr(final)
+# # Step 6: Run OCR
+#     ocr_data = run_ocr(final)
 
-# Save raw OCR output for inspection
-import json
-with open("outputs/ocr_raw.json", "w") as f:
-    json.dump(ocr_data, f, indent=2)
+# # Save raw OCR output for inspection
+# import json
+# with open("outputs/ocr_raw.json", "w") as f:
+#     json.dump(ocr_data, f, indent=2)
 
-print("Saved raw OCR data")
+# print("Saved raw OCR data")
 
-# Step 7: Extract words
-words = extract_words(ocr_data)
-lines = group_words_into_lines(words)
-line_texts = lines_to_text(lines)
+# # Step 7: Extract words
+# words = extract_words(ocr_data)
+# lines = group_words_into_lines(words)
+# line_texts = lines_to_text(lines)
 
-# Save readable lines for inspection
-with open("outputs/lines.txt", "w") as f:
-    for line in line_texts:
-        f.write(line + "\n")
+# # Save readable lines for inspection
+# with open("outputs/lines.txt", "w") as f:
+#     for line in line_texts:
+#         f.write(line + "\n")
 
-print("Saved grouped OCR lines")
+# print("Saved grouped OCR lines")
 
-header, items, totals = build_invoice_sections(line_texts)
-markdown = generate_markdown(header, items, totals)
+# header, items, totals = build_invoice_sections(line_texts)
+# markdown = generate_markdown(header, items, totals)
 
-with open("outputs/document.md", "w") as f:
-    f.write(markdown)
+# with open("outputs/document.md", "w") as f:
+#     f.write(markdown)
 
-print("Generated Markdown invoice")
+# print("Generated Markdown invoice")
+
+question = input("\nAsk a question about the invoice: ")
+
+document = load_markdown()
+prompt = build_prompt(document, question)
+answer = ask_llm(prompt)
+
+print("\nAnswer:\n", answer)
